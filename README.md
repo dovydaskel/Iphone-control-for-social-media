@@ -10,6 +10,16 @@ into Photos over USB, scrolls the feed for a few minutes like a person would, th
 the real posting UI — picks the video, swaps the sound for the next favourite, types the
 caption on the on-screen keyboard, and hits **Post** or **Save draft**.
 
+> [!WARNING]
+> **Status: accounts posted to this way are currently getting shadow banned.** Views
+> collapse to near-zero on the posted videos even though the posts themselves go through
+> and look normal from the account's side. The humanised input in this project is clearly
+> not enough on its own — the detection is happening somewhere else (device/account
+> fingerprint, posting cadence, the content itself, or some combination). Treat the
+> TikTok/Instagram flows as **not working for reach** right now, and don't point this at an
+> account you care about. The hardware control layer underneath — BLE HID pointer, screen
+> capture, OCR, USB media import — works fine and is the reusable part.
+
 ```
 ┌─────────────┐   USB (AVFoundation)   ┌─────────────┐
 │             │ ◀───── screen video ───│             │
@@ -555,9 +565,11 @@ Each phone then has its own URL, its own calibration and its own schedule.
 ## Legal / terms of service
 
 Automating TikTok and Instagram is very likely against their terms of service, whatever the
-input method. Accounts driven this way can be limited or banned. The humanised motion in this
-project exists because jittery robotic input is unpleasant to watch and unreliable on real
-UIs — treat it as an engineering detail, not a guarantee of anything.
+input method. Accounts driven this way can be limited, shadow banned or banned outright —
+and as noted at the top of this README, **shadow banning is what is actually happening
+right now**. The humanised motion in this project exists because jittery robotic input is
+unpleasant to watch and unreliable on real UIs — treat it as an engineering detail, not a
+guarantee of anything, and clearly not as something that defeats detection.
 
 Use this on accounts and devices you own, for content you have the rights to, and accept that
 the risk is yours. It is published as a hardware/computer-vision project: closed-loop
