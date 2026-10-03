@@ -1,0 +1,20 @@
+# Web server
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Computer vision on the captured frames
+opencv-python-headless
+numpy
+
+# Serial link to the ESP32
+pyserial
+
+# USB file transfer to the iPhone (AFC / House Arrest)
+pymobiledevice3
+
+# tools/send_to_phone.py
+httpx
+
+# Firmware build + flash (pio run -t upload)
+platformio

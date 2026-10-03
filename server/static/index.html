@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:,">
+<meta name="theme-color" content="#0f1115">
+<title>iPhone Control</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --border: #262b35; --text: #e6e8ec; --muted: #8a93a3;
+    --ok: #3fb950; --bad: #f85149; --warn: #d29922; --accent: #4c8dff;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-text-size-adjust: 100%; }
+  main { display: flex; gap: 24px; padding: 20px; align-items: flex-start; justify-content: center; }
+  .phone { position: relative; flex: none; background: #000; border-radius: 28px; padding: 14px; border: 1px solid var(--border); }
+  /* Replaced element with auto size + max constraints scales while keeping its aspect ratio. */
+  canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 68px); border-radius: 6px; cursor: crosshair; touch-action: none; background: #111; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .ripple { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; border: 2px solid var(--accent); pointer-events: none; animation: ripple .6s ease-out forwards; }
+  @keyframes ripple { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.6); opacity: 0; } }
+  aside { width: 300px; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  h2 { margin: 0 0 10px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  /* Collapsible cards: click the title to hide/show the rest. */
+  .card > h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; user-select: none; margin: -14px; padding: 14px; }
+  .card > h2::after { content: "▾"; font-size: 14px; line-height: 1; transition: transform .15s; }
+  .card > h2:hover { color: var(--text); }
+  .card > h2 + .card-body { margin-top: 10px; }
+  .card.collapsed > h2::after { transform: rotate(-90deg); }
+  .card.collapsed > .card-body { display: none; }
+  .card > h2 .badge { margin-left: auto; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--accent); }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+  .row span:first-child { color: var(--muted); }
+  .row b { text-align: right; font-weight: 600; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--muted); }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); } .dot.warn { background: var(--warn); }
+  button { width: 100%; min-height: 40px; padding: 9px; margin-top: 8px; background: #222834; color: var(--text); border: 1px solid var(--border); border-radius: 7px; font: inherit; cursor: pointer; }
+  button:hover { background: #2a3140; }
+  .error { color: var(--bad); word-break: break-word; }
+  .error:empty { display: none; }
+  .hint { color: var(--muted); font-size: 12px; margin: 0; }
+  .touch-hint { display: none; }
+  .progress { height: 6px; background: #222834; border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .progress div { height: 100%; width: 0; background: var(--accent); transition: width .1s; }
+  .media-list { list-style: none; margin: 10px 0 0; padding: 0; }
+  .media-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  .media-list .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .media-list .st { color: var(--muted); white-space: nowrap; }
+  .media-list .st.failed { color: var(--bad); } .media-list .st.downloaded { color: var(--ok); }
+  .media-list button { width: auto; min-height: 0; margin: 0; padding: 3px 8px; font-size: 12px; }
+  .media-list .err { flex-basis: 100%; color: var(--bad); font-size: 12px; }
+  .media-list li { flex-wrap: wrap; }
+  .setup { margin-top: 12px; color: var(--muted); font-size: 13px; }
+  .setup summary { cursor: pointer; }
+  .setup ol { padding-left: 18px; margin: 8px 0 0; }
+  .setup li { margin-bottom: 6px; }
+  .setup b { color: var(--text); }
+  code { background: #0b0d11; padding: 2px 5px; border-radius: 4px; word-break: break-all; color: var(--text); user-select: all; }
+  .mobile-bar { display: none; }
+  .as-fields { display: flex; gap: 8px; }
+  .as-fields select, .as-fields input { min-height: 40px; background: #0b0d11; color: var(--text); border: 1px solid var(--border); border-radius: 7px; font: inherit; padding: 0 10px; }
+  .as-fields select { flex: 1; min-width: 0; }
+  .as-min { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .as-min input { width: 72px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { background: #3d7ce8; }
+  button.danger { background: #3a1d1d; border-color: var(--bad); color: #ffb4ae; font-weight: 600; }
+  #as-running + .hint, #as-setup + .hint { margin-top: 10px; }
+  textarea { width: 100%; min-height: 110px; resize: vertical; background: #0b0d11; color: var(--text); border: 1px solid var(--border); border-radius: 7px; font: inherit; padding: 8px 10px; }
+  .tt-save { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+  .tt-save .warn { color: var(--warn); }
+  .tt-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; cursor: pointer; }
+  .tt-check input { width: 16px; height: 16px; margin: 0; }
+  #tt-result.ok { color: var(--ok); } #tt-result.bad { color: var(--bad); }
+
+  /* Schedule */
+  .rt-list { list-style: none; margin: 0; padding: 0; }
+  .rt-list li { border-top: 1px solid var(--border); padding: 8px 0; }
+  .rt-list li:first-child { border-top: 0; padding-top: 0; }
+  .rt-head { display: flex; align-items: center; gap: 8px; }
+  .rt-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rt-when, .rt-steps, .rt-last { font-size: 12px; color: var(--muted); }
+  .rt-last.ok { color: var(--ok); } .rt-last.bad { color: var(--bad); }
+  .rt-actions { display: flex; gap: 6px; margin-top: 6px; }
+  .rt-actions button, .rt-step button, .rt-add button { width: auto; min-height: 0; margin: 0; padding: 4px 9px; font-size: 12px; }
+  .rt-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .rt-form input, .rt-form select { min-height: 34px; background: #0b0d11; color: var(--text); border: 1px solid var(--border); border-radius: 7px; font: inherit; padding: 0 8px; }
+  .rt-form input[type=checkbox] { min-height: 0; width: 15px; height: 15px; margin: 0; }
+  .rt-form textarea { min-height: 60px; }
+  .rt-line { display: flex; align-items: center; gap: 8px; }
+  .rt-line > label { color: var(--muted); font-size: 12px; }
+  .rt-days { display: flex; gap: 4px; }
+  .rt-days button { flex: 1; min-height: 30px; margin: 0; padding: 0; font-size: 12px; }
+  .rt-days button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .rt-step { border: 1px solid var(--border); border-radius: 7px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .rt-step .rt-line b { flex: 1; font-size: 13px; }
+  .rt-step input[type=number] { width: 70px; }
+  .rt-add { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rt-videos { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; }
+  .rt-videos li { display: flex; align-items: center; gap: 6px; border: 0; padding: 3px 0; }
+  .rt-videos .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rt-videos .next { color: var(--accent); font-weight: 600; }
+  .rt-videos button { width: auto; min-height: 0; margin: 0; padding: 1px 7px; font-size: 12px; }
+  .rt-vhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .rt-vhead button { width: auto; min-height: 0; margin: 0; padding: 3px 9px; font-size: 12px; }
+  .rt-warn { color: var(--warn); font-size: 12px; }
+  .toggle { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); cursor: pointer; }
+
+  @media (max-width: 760px) {
+    main { flex-direction: column; align-items: stretch; gap: 12px; padding: 8px 12px calc(16px + env(safe-area-inset-bottom)); }
+    .mobile-bar { display: flex; gap: 14px; justify-content: center; align-items: center; padding: calc(8px + env(safe-area-inset-top)) 12px 0; font-size: 12px; color: var(--muted); }
+    .mobile-bar span { display: inline-flex; align-items: center; white-space: nowrap; }
+    .phone { align-self: center; border-radius: 18px; padding: 6px; }
+    canvas { max-height: calc(100dvh - 72px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); max-width: calc(100vw - 38px); }
+    aside { width: 100%; }
+    .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .buttons button { margin-top: 0; }
+    .mouse-hint { display: none; }
+    .touch-hint { display: block; }
+  }
+</style>
+</head>
+<body>
+<div class="mobile-bar">
+  <span><i class="dot" id="m-ws"></i>Server</span>
+  <span><i class="dot" id="m-esp"></i>ESP</span>
+  <span><i class="dot" id="m-feed"></i>Feed</span>
+  <span id="m-busy">idle</span>
+</div>
+<main>
+  <div class="phone" id="phone"><canvas id="screen" width="750" height="1334"></canvas></div>
+  <aside>
+    <div class="card">
+      <h2>Controls</h2>
+      <p class="hint mouse-hint">Click = tap · hold = long press · drag = swipe · wheel = scroll</p>
+      <p class="hint touch-hint">Tap = tap · hold = long press · drag = swipe</p>
+      <div class="buttons">
+        <button id="wake">Wake &amp; unlock</button>
+        <button id="home_button">Home</button>
+        <button id="calibrate">Calibrate pointer</button>
+        <button id="home">Pointer to corner</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Hands-free scrolling</h2>
+      <div id="as-setup">
+        <div class="as-fields">
+          <select id="as-app">
+            <option value="tiktok">TikTok</option>
+            <option value="instagram">Instagram Reels</option>
+          </select>
+          <label class="as-min"><input type="number" id="as-minutes" min="1" max="240" value="15" inputmode="numeric"> min</label>
+        </div>
+        <button id="as-start" class="primary">Start scrolling</button>
+      </div>
+      <div id="as-running" hidden>
+        <div class="row"><span id="as-app-name">–</span><b id="as-left">–</b></div>
+        <div class="row"><span>Videos</span><b id="as-videos">0</b></div>
+        <button id="as-stop" class="danger">Stop</button>
+      </div>
+      <p class="hint">Opens the app from the home screen, then swipes to the next video every few seconds. Taps you make wait until it stops.</p>
+    </div>
+    <div class="card">
+      <h2>TikTok / Instagram</h2>
+      <textarea id="tt-desc" placeholder="Description to type into the post…" spellcheck="false"></textarea>
+      <div class="tt-save"><span id="tt-saved">–</span><span id="tt-warn" class="warn"></span></div>
+      <div class="as-fields" style="margin-top:8px">
+        <select id="tt-finish">
+          <option value="draft">Finish with: Drafts</option>
+          <option value="post">Finish with: Post (publishes!)</option>
+        </select>
+      </div>
+      <label class="tt-check"><input type="checkbox" id="tt-ig"> Then do the same on Instagram (reel)</label>
+      <button id="tt-run" class="primary">Save draft on TikTok</button>
+      <button id="tt-ig-only" title="Skip TikTok: make a reel of the 2nd video in Instagram&#39;s gallery, which after a TikTok post is TikTok&#39;s copy with the sound">Instagram only (TikTok&#39;s copy: 2nd video)</button>
+      <div id="tt-running" hidden>
+        <div class="row"><span>Step</span><b id="tt-phase">–</b></div>
+        <div class="row"><span>Sound</span><b id="tt-sound">–</b></div>
+      </div>
+      <div class="row"><span>Last sound</span><b id="tt-last">–</b></div>
+      <p class="hint" id="tt-result"></p>
+      <p class="hint">Opens TikTok → + → picks the (only) video in Photos → swaps the sound for the next one in your <b>Favorites</b> sounds (cycling back to the first) → types the description → <b>Drafts</b> or <b>Post</b>. With Instagram on, it then waits for TikTok's saved copy of the posted video (with the sound) to land in Photos and makes a reel of it with the same caption → <b>Save draft</b> or <b>Share</b>. Typing uses the on-screen keyboard: letters, numbers, common symbols, # and @ and new lines work; emoji and accented letters are skipped.</p>
+    </div>
+    <div class="card">
+      <h2>Schedule</h2>
+      <div id="rt-running" hidden>
+        <div class="row"><span id="rt-run-name">–</span><b id="rt-run-step">–</b></div>
+        <button id="rt-stop" class="danger">Stop routine</button>
+      </div>
+      <ul class="rt-list" id="rt-list"></ul>
+      <button id="rt-new">+ New routine</button>
+      <form class="rt-form" id="rt-form" hidden>
+        <input id="rt-name" placeholder="Name, e.g. Morning post" maxlength="60">
+        <div class="rt-line"><label>At</label><input type="time" id="rt-time" value="09:00" required>
+          <label>+ random</label><input type="number" id="rt-jitter" min="0" max="120" value="0" style="width:60px"><label>min</label></div>
+        <div class="rt-days" id="rt-days"></div>
+        <div id="rt-steps" style="display:flex;flex-direction:column;gap:6px"></div>
+        <div class="rt-add">
+          <button type="button" data-add="send_video">+ Send video</button>
+          <button type="button" data-add="autoscroll">+ Scroll</button>
+          <button type="button" data-add="upload">+ Upload</button>
+          <button type="button" data-add="wait">+ Wait</button>
+          <button type="button" data-add="delete_videos">+ Delete videos</button>
+        </div>
+        <p class="error" id="rt-err"></p>
+        <div class="rt-actions"><button type="submit" class="primary" style="flex:1;padding:8px">Save routine</button><button type="button" id="rt-cancel" style="padding:8px">Cancel</button></div>
+      </form>
+      <p class="hint" style="margin-top:10px">Runs on this Mac's clock, so the Mac must be awake (and this server running). The random delay makes it start at a slightly different time each day. A <b>Send video</b> step puts the routine's next queued video into Photos (phone on USB), so each run posts a different one; add the videos under the routine after saving it. An Upload step with an empty description uses the one in the TikTok / Instagram card. A routine stops at the first step that fails.</p>
+    </div>
+    <div class="card">
+      <h2>Send to Photos</h2>
+      <input type="file" id="media-file" accept="image/*,video/*" multiple hidden>
+      <button id="media-pick">Choose photos / videos…</button>
+      <div class="progress" id="media-progress" hidden><div id="media-bar"></div></div>
+      <ul class="media-list" id="media-list"></ul>
+      <button id="delete-videos">Delete all videos from Photos</button>
+      <details class="setup">
+        <summary>One-time phone setup (USB Import)</summary>
+        <p>The iPhone must be plugged into this Mac; no internet needed.</p>
+        <ol>
+          <li>Install <b>VLC</b> from the App Store and open it once.</li>
+          <li>With the phone plugged in, click <button id="usb-folder" style="width:auto;display:inline;margin:0;padding:2px 8px;min-height:0">Create import folder</button> <span id="usb-folder-st"></span></li>
+          <li>On the phone open <b>Shortcuts</b> → <b>+</b>.</li>
+          <li>Add <b>Get Contents of Folder</b> and pick <b>On My iPhone › VLC › Mac Import</b>.</li>
+          <li>Add <b>Save to Photo Album</b> (Recents) for the folder contents. No delete step needed; the Mac clears the folder.</li>
+          <li>Name it <b id="usb-shortcut-name">USB Import</b>, then Share → <b>Add to Home Screen</b>.</li>
+          <li>Run it once by hand and answer the permission prompts with <b>Always Allow</b>.</li>
+        </ol>
+      </details>
+      <details class="setup">
+        <summary>One-time phone setup (Delete videos)</summary>
+        <p>Deletes <b>every</b> video in Photos (they go to Recently Deleted for 30 days). With iCloud Photos on, that's on all your devices.</p>
+        <ol>
+          <li>On the phone open <b>Shortcuts</b> → <b>+</b>.</li>
+          <li>Add <b>Find Photos</b> → <b>Add Filter</b> → <b>Media Type</b> is <b>Video</b>. Leave Limit off.</li>
+          <li>Add <b>Delete Photos</b> with the found Photos as input.</li>
+          <li>Name it <b id="delete-shortcut-name">Delete Videos</b>.</li>
+          <li>On the home screen long-press → <b>Edit</b> → <b>Add Widget</b> → <b>Shortcuts</b> → the small single-shortcut widget → <b>Add Widget</b>. Tap the new widget and pick <b>Delete Videos</b>. Drag it to the right of the USB Import widget.</li>
+          <li>Run it once by hand and answer any permission prompts with <b>Always Allow</b>. iOS still asks "Allow … to delete?" every run; the server taps <b>Delete</b> for you.</li>
+        </ol>
+      </details>
+    </div>
+    <div class="card">
+      <h2>Status</h2>
+      <div class="row"><span>Server</span><span><i class="dot" id="d-ws"></i><b id="s-ws">connecting</b></span></div>
+      <div class="row"><span>ESP</span><span><i class="dot" id="d-esp"></i><b id="s-esp">–</b></span></div>
+      <div class="row"><span>Feed</span><span><i class="dot" id="d-feed"></i><b id="s-feed">–</b></span></div>
+      <div class="row"><span>Controller</span><b id="s-busy">idle</b></div>
+      <div class="row"><span>Last action</span><b id="s-last">–</b></div>
+      <div class="row"><span>Gain (px/unit)</span><b id="s-gain">–</b></div>
+      <div class="error" id="s-err"></div>
+    </div>
+  </aside>
+</main>
+<script>
+const canvas = document.getElementById('screen');
+const ctx = canvas.getContext('2d');
+const phone = document.getElementById('phone');
+const $ = id => document.getElementById(id);
+let ws, frameW = 750, frameH = 1334;
+
+function setDot(ids, cls) { for (const id of ids) $(id).className = 'dot ' + (cls || ''); }
+
+function connect() {
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws`);
+  ws.binaryType = 'blob';
+  ws.onopen = () => { $('s-ws').textContent = 'connected'; setDot(['d-ws', 'm-ws'], 'ok'); };
+  ws.onclose = () => { $('s-ws').textContent = 'disconnected'; setDot(['d-ws', 'm-ws'], 'bad'); setTimeout(connect, 1000); };
+  ws.onmessage = async ev => {
+    if (typeof ev.data !== 'string') {
+      const bmp = await createImageBitmap(ev.data);
+      if (bmp.width !== canvas.width || bmp.height !== canvas.height) {
+        canvas.width = frameW = bmp.width; canvas.height = frameH = bmp.height;
+      }
+      ctx.drawImage(bmp, 0, 0);
+      bmp.close();
+      return;
+    }
+    const s = JSON.parse(ev.data);
+    $('s-esp').textContent = !s.esp.serial ? 'no serial' : s.esp.connected ? s.esp.name : `${s.esp.name || 'ESP'} (not paired)`;
+    setDot(['d-esp', 'm-esp'], !s.esp.serial ? 'bad' : s.esp.connected ? 'ok' : 'warn');
+    // iOS only sends frames when the screen changes, so a still screen is normal.
+    const c = s.capture;
+    if (!c.width) {
+      $('s-feed').textContent = 'waiting for frames (iPhone locked?)';
+      setDot(['d-feed', 'm-feed'], 'bad');
+    } else {
+      $('s-feed').textContent = c.fps ? `${c.fps} fps · ${c.width}×${c.height}` : `still · ${c.width}×${c.height}`;
+      setDot(['d-feed', 'm-feed'], 'ok');
+    }
+    const busy = s.busy ? `working${s.queued ? ` (+${s.queued})` : ''}` : 'idle';
+    $('s-busy').textContent = $('m-busy').textContent = busy;
+    $('s-last').textContent = s.last_action || '–';
+    $('s-gain').textContent = s.gain.join(' / ');
+    $('s-err').textContent = s.last_error || '';
+    $('usb-shortcut-name').textContent = s.usb_import_shortcut;
+    $('delete-shortcut-name').textContent = s.delete_videos_shortcut;
+    renderMedia(s.media);
+    renderAutoscroll(s.autoscroll);
+    renderTikTok(s.tiktok);
+    renderRoutineRun(s.routine);
+    setBadge('Hands-free scrolling', s.autoscroll ? 'running' : '');
+    setBadge('TikTok / Instagram', s.tiktok ? 'running' : '');
+    setBadge('Schedule', s.routine ? `running ${s.routine.step}/${s.routine.steps}` : '');
+    setBadge('Status', s.last_error ? 'error' : s.busy ? 'working' : '');
+  };
+}
+connect();
+
+function send(msg) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
+}
+
+// Canvas CSS pixels -> iPhone screen pixels
+function toScreen(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * frameW / r.width, y: (e.clientY - r.top) * frameH / r.height };
+}
+
+function ripple(e) {
+  const r = phone.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'ripple';
+  el.style.left = (e.clientX - r.left) + 'px';
+  el.style.top = (e.clientY - r.top) + 'px';
+  phone.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+}
+
+let down = null;
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  canvas.setPointerCapture(e.pointerId);
+  down = { id: e.pointerId, p: toScreen(e), t: performance.now() };
+});
+canvas.addEventListener('pointerup', e => {
+  if (!down || e.pointerId !== down.id) return;
+  const p = toScreen(e), dt = performance.now() - down.t;
+  // Fingers wobble more than a mouse, so allow more movement before calling it a swipe.
+  const slop = e.pointerType === 'touch' ? 25 : 15;
+  if (Math.hypot(p.x - down.p.x, p.y - down.p.y) > slop) {
+    send({ type: 'swipe', x1: down.p.x, y1: down.p.y, x2: p.x, y2: p.y });
+  } else if (dt > 500) {
+    send({ type: 'long_press', x: down.p.x, y: down.p.y, seconds: Math.min(dt / 1000, 5) });
+  } else {
+    send({ type: 'tap', x: down.p.x, y: down.p.y });
+  }
+  ripple(e);
+  down = null;
+});
+canvas.addEventListener('pointercancel', () => { down = null; });
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  send({ type: 'scroll', amount: Math.round(-e.deltaY / 20) });
+}, { passive: false });
+
+// ---- Send to Photos ----
+const STATUS_TEXT = { queued: 'queued', sending: 'starting…', copying: 'copying over cable…', importing: 'saving to Photos…', downloaded: 'in Photos ✓', failed: 'failed' };
+let lastMediaJson = '';
+function renderMedia(items) {
+  const json = JSON.stringify(items);
+  if (json === lastMediaJson) return;
+  lastMediaJson = json;
+  const list = $('media-list');
+  list.replaceChildren(...items.map(it => {
+    const li = document.createElement('li');
+    const name = Object.assign(document.createElement('span'), { className: 'name', textContent: `${it.name} · ${(it.size / 1e6).toFixed(1)} MB` });
+    const st = Object.assign(document.createElement('span'), { className: `st ${it.status}`, textContent: STATUS_TEXT[it.status] || it.status });
+    li.append(name, st);
+    if (it.status === 'failed' || it.status === 'downloaded') {
+      const again = Object.assign(document.createElement('button'), { textContent: it.status === 'failed' ? 'Retry' : 'Send again' });
+      again.onclick = () => fetch(`/api/media/${it.id}/send`, { method: 'POST' });
+      li.append(again);
+    }
+    if (!['sending', 'copying', 'importing'].includes(it.status)) {
+      const del = Object.assign(document.createElement('button'), { textContent: '✕', title: 'Remove from queue' });
+      del.onclick = () => fetch(`/api/media/${it.id}`, { method: 'DELETE' });
+      li.append(del);
+    }
+    if (it.error) li.append(Object.assign(document.createElement('span'), { className: 'err', textContent: it.error }));
+    return li;
+  }));
+}
+
+function upload(file) {
+  return new Promise((resolve, reject) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('send', 'false');
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/media');
+    xhr.upload.onprogress = e => { if (e.lengthComputable) $('media-bar').style.width = `${100 * e.loaded / e.total}%`; };
+    xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(xhr.statusText)));
+    xhr.onerror = () => reject(new Error('upload failed'));
+    xhr.send(form);
+  });
+}
+
+$('media-pick').onclick = () => $('media-file').click();
+$('usb-folder').onclick = async () => {
+  const r = await fetch('/api/usb/folder', { method: 'POST' });
+  $('usb-folder-st').textContent = r.ok ? 'done ✓' : (await r.json()).detail;
+};
+$('media-file').onchange = async e => {
+  $('media-progress').hidden = false;
+  for (const file of e.target.files) {
+    $('media-bar').style.width = '0';
+    try { await upload(file); } catch (err) { $('s-err').textContent = `${file.name}: ${err.message}`; }
+  }
+  $('media-progress').hidden = true;
+  // One import for the whole selection: over USB that's a single Shortcut run.
+  await fetch('/api/media/send', { method: 'POST' });
+  e.target.value = '';
+};
+
+$('delete-videos').onclick = () => {
+  if (confirm('Delete ALL videos from the phone\'s Photos library?')) send({ type: 'delete_videos' });
+};
+// ---- Hands-free scrolling ----
+const AS_APPS = { tiktok: 'TikTok', instagram: 'Instagram Reels' };
+function renderAutoscroll(a) {
+  $('as-setup').hidden = !!a;
+  $('as-running').hidden = !a;
+  if (!a) return;
+  const m = Math.floor(a.remaining / 60), sec = String(a.remaining % 60).padStart(2, '0');
+  $('as-app-name').textContent = a.phase === 'opening' ? `Opening ${AS_APPS[a.app]}…` : AS_APPS[a.app];
+  $('as-left').textContent = `${m}:${sec} left`;
+  $('as-videos').textContent = a.videos ?? 0;
+}
+$('as-start').onclick = () => {
+  const minutes = Math.min(240, Math.max(1, Number($('as-minutes').value) || 15));
+  send({ type: 'autoscroll', app: $('as-app').value, minutes });
+};
+$('as-stop').onclick = () => send({ type: 'stop_autoscroll' });
+
+// ---- TikTok draft ----
+// Characters the on-screen keyboard typer can't enter (see tiktok.py).
+const TT_TYPABLE = /[A-Za-z0-9 \n.,?!'"\-\/:;()$&@#\[\]{}%^*+=_\\|~<>€£¥•’‘“”]/;
+let ttSaveTimer = null, ttWasRunning = false;
+function ttWarn() {
+  const bad = [...new Set([...$('tt-desc').value].filter(c => !TT_TYPABLE.test(c)))];
+  $('tt-warn').textContent = bad.length ? `will skip: ${bad.join(' ')}` : '';
+}
+function ttShowState(st) {
+  $('tt-last').textContent = st.last_sound || '–';
+  const r = st.last_result;
+  const el = $('tt-result');
+  if (!r) { el.textContent = ''; el.className = 'hint'; return; }
+  const when = new Date(r.at * 1000).toLocaleString();
+  el.className = 'hint ' + (r.ok ? 'ok' : 'bad');
+  el.textContent = r.ok ? `Last ${r.finish === 'post' ? 'post' : 'draft saved'}${r.instagram ? ' (TikTok + Instagram)' : ''} ${when}${r.sound ? ` with “${r.sound}”` : ''}${r.skipped_chars ? ` (skipped: ${r.skipped_chars})` : ''}`
+                        : `Last run failed ${when} while ${r.phase || 'starting'}: ${r.error}`;
+}
+async function ttSave(run = false, instagramOnly = false) {
+  const form = new FormData();
+  form.append('instagram_only', instagramOnly ? 'true' : 'false');
+  form.append('description', $('tt-desc').value);
+  form.append('finish', $('tt-finish').value);
+  form.append('instagram', $('tt-ig').checked ? 'true' : 'false');
+  form.append('run', run ? 'true' : 'false');
+  const r = await fetch('/api/tiktok', { method: 'POST', body: form });
+  if (r.ok) { ttShowState(await r.json()); $('tt-saved').textContent = 'saved ✓'; }
+  else $('tt-saved').textContent = 'save failed';
+}
+$('tt-desc').oninput = () => {
+  ttWarn();
+  $('tt-saved').textContent = 'saving…';
+  clearTimeout(ttSaveTimer);
+  ttSaveTimer = setTimeout(() => ttSave(), 600);
+};
+function ttFinishLabel() {
+  const post = $('tt-finish').value === 'post', ig = $('tt-ig').checked;
+  $('tt-run').textContent = (post ? 'Post on TikTok' : 'Save draft on TikTok') + (ig ? ' + Instagram' : '');
+  $('tt-run').className = post ? 'danger' : 'primary';
+}
+$('tt-finish').onchange = $('tt-ig').onchange = () => { ttFinishLabel(); ttSave(); };
+$('tt-ig-only').onclick = () => {
+  const post = $('tt-finish').value === 'post';
+  if (!confirm(post ? "Publish TikTok's copy (2nd video) on Instagram?" : "Save TikTok's copy (2nd video) as an Instagram draft?")) return;
+  clearTimeout(ttSaveTimer);
+  ttSave(true, true);
+};
+$('tt-run').onclick = () => {
+  const where = $('tt-ig').checked ? 'TikTok and Instagram' : 'TikTok';
+  if ($('tt-finish').value === 'post' && !confirm(`Publish this video on ${where}?`)) return;
+  clearTimeout(ttSaveTimer);
+  ttSave(true);
+};
+function renderTikTok(t) {
+  $('tt-run').disabled = $('tt-ig-only').disabled = !!t;
+  $('tt-running').hidden = !t;
+  if (t) {
+    const typing = /typing the (description|caption)$/.test(t.phase || '');
+    $('tt-phase').textContent = typing && t.typed
+      ? `${t.phase.split(':')[0]}: typing (${t.typed}/${$('tt-desc').value.trim().length})` : (t.phase || 'starting');
+    $('tt-sound').textContent = t.sound || '–';
+  } else if (ttWasRunning) {
+    fetch('/api/tiktok').then(r => r.json()).then(ttShowState);
+  }
+  ttWasRunning = !!t;
+}
+fetch('/api/tiktok').then(r => r.json()).then(st => {
+  $('tt-desc').value = st.description || '';
+  $('tt-finish').value = st.finish === 'post' ? 'post' : 'draft';
+  $('tt-ig').checked = !!st.instagram;
+  ttFinishLabel();
+  $('tt-saved').textContent = st.description ? 'saved ✓' : 'not saved yet';
+  ttWarn();
+  ttShowState(st);
+});
+
+// ---- Collapsible cards ----
+// Everything under a card's title goes into a body that the title toggles. All cards start
+// closed each time the page opens.
+for (const card of document.querySelectorAll('aside .card')) {
+  const h2 = card.querySelector(':scope > h2');
+  if (!h2) continue;
+  const body = document.createElement('div');
+  body.className = 'card-body';
+  while (h2.nextSibling) body.appendChild(h2.nextSibling);
+  card.appendChild(body);
+  h2.setAttribute('role', 'button');
+  h2.tabIndex = 0;
+  // Shows what's going on inside a collapsed card (e.g. a routine running).
+  h2.appendChild(Object.assign(document.createElement('span'), { className: 'badge' }));
+  const set = collapsed => {
+    card.classList.toggle('collapsed', collapsed);
+    h2.setAttribute('aria-expanded', String(!collapsed));
+  };
+  set(true);
+  const toggle = () => set(!card.classList.contains('collapsed'));
+  h2.onclick = toggle;
+  h2.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } };
+}
+function setBadge(title, text) {
+  for (const h2 of document.querySelectorAll('aside .card > h2')) {
+    const badge = h2.querySelector('.badge');
+    if (badge && h2.firstChild.textContent.trim() === title) badge.textContent = text || '';
+  }
+}
+
+// ---- Schedule ----
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+let routines = [], editing = null, formSteps = [], formDays = new Set([0, 1, 2, 3, 4, 5, 6]), rtWasRunning = false;
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+
+function daysText(days) {
+  if (days.length === 7) return 'every day';
+  if (days.join() === '0,1,2,3,4') return 'weekdays';
+  if (days.join() === '5,6') return 'weekends';
+  return days.length ? days.map(d => DAY_NAMES[d]).join(', ') : 'no days';
+}
+function whenText(ts) {
+  if (!ts) return 'not scheduled';
+  const d = new Date(ts * 1000), now = new Date();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+  if (d.toDateString() === now.toDateString()) return `today ${time}`;
+  if (d.toDateString() === tomorrow.toDateString()) return `tomorrow ${time}`;
+  return `${d.toLocaleDateString([], { weekday: 'short' })} ${time}`;
+}
+async function loadRoutines() {
+  routines = await (await fetch('/api/routines')).json();
+  renderRoutines();
+}
+function renderRoutines() {
+  $('rt-list').replaceChildren(...routines.map(r => {
+    const toggle = el('input', { type: 'checkbox', checked: r.enabled, title: 'Enabled' });
+    toggle.onchange = () => saveRoutine({ ...r, enabled: toggle.checked }).then(loadRoutines);
+    const last = r.last_result;
+    const lastEl = el('div', { className: 'rt-last' + (last ? (last.ok ? ' ok' : ' bad') : '') },
+      last ? `Last run ${new Date(last.at * 1000).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}: ${last.ok ? 'done' : last.error}` : 'Never run');
+    const run = el('button', { textContent: 'Run now' });
+    run.onclick = () => { if (confirm(`Run "${r.name}" now?`)) fetch(`/api/routines/${r.id}/run`, { method: 'POST' }); };
+    const edit = el('button', { textContent: 'Edit' });
+    edit.onclick = () => openForm(r);
+    const del = el('button', { textContent: 'Delete' });
+    del.onclick = async () => { if (confirm(`Delete "${r.name}"?`)) { await fetch(`/api/routines/${r.id}`, { method: 'DELETE' }); loadRoutines(); } };
+    return el('li', {},
+      el('div', { className: 'rt-head' }, el('b', { textContent: r.name }), el('label', { className: 'toggle' }, toggle, 'on')),
+      el('div', { className: 'rt-when', textContent: `${r.time}${r.jitter ? ` +0–${r.jitter} min` : ''}, ${daysText(r.days)} · next: ${whenText(r.next_run)}` }),
+      el('div', { className: 'rt-steps', textContent: r.summary.map((t, i) => `${i + 1}. ${t}`).join('  ') }),
+      lastEl,
+      ...videoQueue(r),
+      el('div', { className: 'rt-actions' }, run, edit, del));
+  }));
+}
+function videoQueue(r) {
+  const videos = r.videos || [];
+  const sends = r.steps.some(st => st.type === 'send_video');
+  if (!sends && !videos.length) return [];
+  const input = el('input', { type: 'file', accept: 'video/*', multiple: true, hidden: true });
+  const add = el('button', { textContent: '+ Add videos…' });
+  const status = el('span', { textContent: `Videos: ${videos.length} queued` });
+  add.onclick = () => input.click();
+  input.onchange = async () => {
+    const form = new FormData();
+    for (const f of input.files) form.append('files', f);
+    status.textContent = `uploading ${input.files.length}…`;
+    add.disabled = true;
+    const res = await fetch(`/api/routines/${r.id}/videos`, { method: 'POST', body: form });
+    if (!res.ok) status.textContent = 'upload failed';
+    loadRoutines();
+  };
+  const list = el('ul', { className: 'rt-videos' }, ...videos.map((v, i) => {
+    const up = el('button', { textContent: '↑', title: 'Use earlier', disabled: i === 0 });
+    up.onclick = async () => {
+      const form = new FormData(); form.append('delta', '-1');
+      await fetch(`/api/routines/${r.id}/videos/${v.id}/move`, { method: 'POST', body: form }); loadRoutines();
+    };
+    const rm = el('button', { textContent: '✕', title: 'Remove from queue' });
+    rm.onclick = async () => { await fetch(`/api/routines/${r.id}/videos/${v.id}`, { method: 'DELETE' }); loadRoutines(); };
+    return el('li', {}, el('span', { className: 'name' + (i === 0 ? ' next' : ''),
+      textContent: `${i + 1}. ${v.name} · ${(v.size / 1e6).toFixed(1)} MB${i === 0 ? ' (next)' : ''}` }), up, rm);
+  }));
+  const out = [el('div', { className: 'rt-vhead' }, status, add, input), list];
+  if (sends && !videos.length) out.push(el('div', { className: 'rt-warn', textContent: 'No videos queued: the next run will stop at its Send video step.' }));
+  if (r.last_video) out.push(el('div', { className: 'rt-when', textContent: `Last sent: ${r.last_video.name}` }));
+  return out;
+}
+function newStep(type) {
+  if (type === 'send_video') return { type, clear_first: true };
+  if (type === 'autoscroll') return { type, app: 'tiktok', minutes: 10 };
+  if (type === 'upload') return { type, finish: 'draft', instagram: false, description: '' };
+  if (type === 'wait') return { type, minutes: 5 };
+  return { type };
+}
+function renderDays() {
+  $('rt-days').replaceChildren(...DAY_NAMES.map((n, d) => {
+    const b = el('button', { type: 'button', textContent: n, className: formDays.has(d) ? 'on' : '' });
+    b.onclick = () => { formDays.has(d) ? formDays.delete(d) : formDays.add(d); renderDays(); };
+    return b;
+  }));
+}
+function renderSteps() {
+  $('rt-steps').replaceChildren(...formSteps.map((st, i) => {
+    const up = el('button', { type: 'button', textContent: '↑', disabled: i === 0 });
+    up.onclick = () => { [formSteps[i - 1], formSteps[i]] = [formSteps[i], formSteps[i - 1]]; renderSteps(); };
+    const rm = el('button', { type: 'button', textContent: '✕' });
+    rm.onclick = () => { formSteps.splice(i, 1); renderSteps(); };
+    const title = { send_video: 'Send next queued video to Photos', autoscroll: 'Scroll', upload: 'Upload video', wait: 'Wait', delete_videos: 'Delete all videos from Photos' }[st.type];
+    const box = el('div', { className: 'rt-step' }, el('div', { className: 'rt-line' }, el('b', { textContent: `${i + 1}. ${title}` }), up, rm));
+    const num = (key, max) => {
+      const inp = el('input', { type: 'number', min: 1, max, value: st[key] });
+      inp.oninput = () => { st[key] = Number(inp.value); };
+      return inp;
+    };
+    if (st.type === 'send_video') {
+      const clear = el('input', { type: 'checkbox', checked: st.clear_first });
+      clear.onchange = () => { st.clear_first = clear.checked; };
+      box.append(el('label', { className: 'toggle' }, clear, 'delete the old videos from Photos first'));
+    } else if (st.type === 'autoscroll') {
+      const app = el('select', {}, el('option', { value: 'tiktok', textContent: 'TikTok' }), el('option', { value: 'instagram', textContent: 'Instagram Reels' }));
+      app.value = st.app; app.onchange = () => { st.app = app.value; };
+      box.append(el('div', { className: 'rt-line' }, app, num('minutes', 240), el('label', { textContent: 'min' })));
+    } else if (st.type === 'wait') {
+      box.append(el('div', { className: 'rt-line' }, num('minutes', 240), el('label', { textContent: 'min' })));
+    } else if (st.type === 'upload') {
+      const fin = el('select', {}, el('option', { value: 'draft', textContent: 'Drafts' }), el('option', { value: 'post', textContent: 'Post (publishes!)' }));
+      fin.value = st.finish; fin.onchange = () => { st.finish = fin.value; };
+      const ig = el('input', { type: 'checkbox', checked: st.instagram });
+      ig.onchange = () => { st.instagram = ig.checked; };
+      const desc = el('textarea', { placeholder: 'Description (empty = use the TikTok / Instagram card’s)', value: st.description || '' });
+      desc.oninput = () => { st.description = desc.value; };
+      box.append(el('div', { className: 'rt-line' }, el('label', { textContent: 'Finish with' }), fin),
+                 el('label', { className: 'toggle' }, ig, 'then the same on Instagram'), desc);
+    }
+    return box;
+  }));
+}
+function openForm(r) {
+  editing = r ? r.id : null;
+  $('rt-name').value = r ? r.name : '';
+  $('rt-time').value = r ? r.time : '09:00';
+  $('rt-jitter').value = r ? r.jitter : 0;
+  formDays = new Set(r ? r.days : [0, 1, 2, 3, 4, 5, 6]);
+  formSteps = r ? JSON.parse(JSON.stringify(r.steps)) : [newStep('send_video'), newStep('autoscroll'), newStep('upload')];
+  $('rt-err').textContent = '';
+  renderDays(); renderSteps();
+  $('rt-form').hidden = false; $('rt-new').hidden = true;
+}
+function closeForm() { $('rt-form').hidden = true; $('rt-new').hidden = false; }
+async function saveRoutine(r) {
+  const res = await fetch('/api/routines', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(r) });
+  if (!res.ok) throw new Error((await res.json()).detail);
+  return res.json();
+}
+$('rt-new').onclick = () => openForm(null);
+$('rt-cancel').onclick = closeForm;
+document.querySelectorAll('[data-add]').forEach(b => { b.onclick = () => { formSteps.push(newStep(b.dataset.add)); renderSteps(); }; });
+$('rt-form').onsubmit = async e => {
+  e.preventDefault();
+  const existing = routines.find(r => r.id === editing);
+  if (formSteps.some(s => s.type === 'upload' && s.finish === 'post') && !confirm('This routine will publish on its own at the scheduled time. Save it?')) return;
+  try {
+    await saveRoutine({ id: editing, name: $('rt-name').value || 'Routine', enabled: existing ? existing.enabled : true,
+      time: $('rt-time').value, jitter: Number($('rt-jitter').value) || 0, days: [...formDays], steps: formSteps });
+    closeForm(); loadRoutines();
+  } catch (err) { $('rt-err').textContent = err.message; }
+};
+$('rt-stop').onclick = () => send({ type: 'stop_routine' });
+function renderRoutineRun(r) {
+  $('rt-running').hidden = !r;
+  if (r) {
+    $('rt-run-name').textContent = r.name;
+    $('rt-run-step').textContent = `step ${r.step}/${r.steps}: ${r.label || ''}${r.video ? ` (${r.video})` : ''}`;
+  } else if (rtWasRunning) loadRoutines();
+  rtWasRunning = !!r;
+}
+loadRoutines();
+setInterval(loadRoutines, 60000);
+
+$('calibrate').onclick =() => send({ type: 'calibrate' });
+$('wake').onclick = () => send({ type: 'wake' });
+$('home_button').onclick = () => send({ type: 'home_button' });
+$('home').onclick = () => send({ type: 'home_pointer' });
+</script>
+</body>
+</html>

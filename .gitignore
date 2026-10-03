@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# PlatformIO build output + downloaded libs
+firmware/.pio/
+
+# Compiled Swift helpers (built by run.sh)
+capture/capture
+capture/ocr
+
+# Runtime state and user media (local to one setup)
+server/media/
+server/routine_videos/
+server/routines.json
+server/tiktok_state.json
+server/calibration.json
+
+# Debug logs / screenshots from browser tooling
+.playwright-mcp/
+
+# macOS
+.DS_Store
